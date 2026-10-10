@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useState } from "react"
 
 import { signInAction } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,9 @@ import { Label } from "@/components/ui/label"
 
 export function LoginForm() {
   const [state, formAction, isPending] = useActionState(signInAction, null)
+  // Controlled so the email survives React's form reset after a failed
+  // attempt; the password is intentionally cleared.
+  const [email, setEmail] = useState("")
   const error = state && !state.ok ? state.error : null
 
   return (
@@ -19,6 +22,8 @@ export function LoginForm() {
           id="email"
           name="email"
           type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
           placeholder="you@example.com"
           required
