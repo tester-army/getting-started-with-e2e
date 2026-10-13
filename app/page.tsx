@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation"
 
-// proxy.ts normally handles "/" (to /todos or /login); this is a fallback.
+// This page redirects instead of rendering an instant UI.
+export const instant = false
+
 export default function Home() {
   redirect("/todos")
 }

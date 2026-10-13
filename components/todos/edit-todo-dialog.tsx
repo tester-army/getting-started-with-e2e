@@ -1,9 +1,8 @@
 "use client"
 
-import { useActionState, useState } from "react"
+import { useState } from "react"
 import { PencilIcon } from "lucide-react"
 
-import { updateTodoAction } from "@/app/actions/todos"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -18,18 +17,15 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import type { ActionResult } from "@/lib/action-result"
 
-import type { ClientTodo, OptimisticDispatch } from "./types"
+import type { Todo, TodoDispatch } from "./types"
 
 export function EditTodoDialog({
   todo,
   dispatch,
-  disabled,
 }: {
-  todo: ClientTodo
-  dispatch: OptimisticDispatch
-  disabled?: boolean
+  todo: Todo
+  dispatch: TodoDispatch
 }) {
   const [open, setOpen] = useState(false)
   // Bumped on every open so the form remounts with fresh values, while
@@ -45,7 +41,6 @@ export function EditTodoDialog({
       }}
     >
       <DialogTrigger
-        disabled={disabled}
         render={
           <Button
             variant="ghost"
@@ -73,29 +68,27 @@ function EditTodoForm({
   dispatch,
   onDone,
 }: {
-  todo: ClientTodo
-  dispatch: OptimisticDispatch
+  todo: Todo
+  dispatch: TodoDispatch
   onDone: () => void
 }) {
-  const [state, formAction, isPending] = useActionState(
-    async (_prev: ActionResult | null, formData: FormData) => {
-      const title = String(formData.get("title") ?? "").trim()
-      const description = String(formData.get("description") ?? "").trim()
-      if (title) {
-        dispatch({ type: "update", id: todo.id, patch: { title, description } })
-      }
+  const [error, setError] = useState<string | null>(null)
 
-      const result = await updateTodoAction(todo.id, formData)
-      if (result.ok) onDone()
-      return result
-    },
-    null
-  )
-
-  const error = state && !state.ok ? state.error : null
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    const title = String(formData.get("title") ?? "").trim()
+    const description = String(formData.get("description") ?? "").trim()
+    if (!title) {
+      setError("Title is required.")
+      return
+    }
+    dispatch({ type: "update", id: todo.id, patch: { title, description } })
+    onDone()
+  }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <DialogHeader>
         <DialogTitle>Edit todo</DialogTitle>
         <DialogDescription>
@@ -138,9 +131,7 @@ function EditTodoForm({
         <DialogClose render={<Button variant="outline" type="button" />}>
           Cancel
         </DialogClose>
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Saving…" : "Save changes"}
-        </Button>
+        <Button type="submit">Save changes</Button>
       </DialogFooter>
     </form>
   )

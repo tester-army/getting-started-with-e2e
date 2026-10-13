@@ -1,16 +1,14 @@
 "use client"
 
-import { useOptimistic, useState, useTransition } from "react"
-import { HashIcon, InboxIcon } from "lucide-react"
-import { toast } from "sonner"
+import { useMemo, useState, useSyncExternalStore } from "react"
+import { ListTodoIcon } from "lucide-react"
 
-import { clearCompletedAction } from "@/app/actions/todos"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import { CreateTodoForm } from "./create-todo-form"
 import { TodoItem } from "./todo-item"
-import { optimisticReducer, type Todo } from "./types"
+import { todoReducer, type Todo, type TodoAction } from "./types"
 
 type Filter = "all" | "open" | "done"
 
@@ -20,43 +18,48 @@ const EMPTY_MESSAGES: Record<Filter, string> = {
   done: "No done todos yet.",
 }
 
-export function TodoApp({
-  projectId,
-  projectName,
-  todos,
-}: {
-  /** `null` is the Inbox. */
-  projectId: string | null
-  projectName: string
-  todos: Todo[]
-}) {
-  const [optimisticTodos, dispatch] = useOptimistic(todos, optimisticReducer)
-  const [filter, setFilter] = useState<Filter>("all")
-  const [isClearing, startTransition] = useTransition()
+function subscribe(onChange: () => void) {
+  window.addEventListener("storage", onChange)
+  window.addEventListener("todos-changed", onChange)
+  return () => {
+    window.removeEventListener("storage", onChange)
+    window.removeEventListener("todos-changed", onChange)
+  }
+}
 
-  const remaining = optimisticTodos.filter((t) => !t.completed).length
-  const doneCount = optimisticTodos.length - remaining
+const getSnapshot = () => localStorage.getItem("todos") ?? "[]"
+const getServerSnapshot = () => "[]"
 
-  const visibleTodos = optimisticTodos.filter((t) =>
-    filter === "all" ? true : filter === "open" ? !t.completed : t.completed
-  )
+export function TodoApp() {
+  const stored = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  const todos = useMemo((): Todo[] => {
+    try {
+      return JSON.parse(stored)
+    } catch {
+      return []
+    }
+  }, [stored])
 
-  function handleClearDone() {
-    startTransition(async () => {
-      dispatch({ type: "clear-completed" })
-      const result = await clearCompletedAction(projectId)
-      if (!result.ok) toast.error(result.error)
-    })
+  function dispatch(action: TodoAction) {
+    localStorage.setItem("todos", JSON.stringify(todoReducer(todos, action)))
+    window.dispatchEvent(new Event("todos-changed"))
   }
 
-  const Icon = projectId ? HashIcon : InboxIcon
+  const [filter, setFilter] = useState<Filter>("all")
+
+  const remaining = todos.filter((t) => !t.completed).length
+  const doneCount = todos.length - remaining
+
+  const visibleTodos = todos.filter((t) =>
+    filter === "all" ? true : filter === "open" ? !t.completed : t.completed
+  )
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-8 sm:px-6">
       <header className="flex items-end justify-between gap-4">
         <h1 className="flex min-w-0 items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Icon className="size-5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{projectName}</span>
+          <ListTodoIcon className="size-5 shrink-0 text-muted-foreground" />
+          <span className="truncate">Todos</span>
         </h1>
         <p
           role="status"
@@ -67,7 +70,7 @@ export function TodoApp({
         </p>
       </header>
 
-      <CreateTodoForm projectId={projectId} dispatch={dispatch} />
+      <CreateTodoForm dispatch={dispatch} />
 
       <div className="flex items-center justify-between gap-2">
         <Tabs
@@ -89,8 +92,8 @@ export function TodoApp({
         <Button
           variant="ghost"
           size="sm"
-          onClick={handleClearDone}
-          disabled={doneCount === 0 || isClearing}
+          onClick={() => dispatch({ type: "clear-completed" })}
+          disabled={doneCount === 0}
           className="text-muted-foreground"
         >
           Clear done

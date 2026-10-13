@@ -1,15 +1,12 @@
-import type { Todo as DbTodo } from "@/lib/db"
+export type Todo = {
+  id: string
+  title: string
+  description: string
+  completed: boolean
+}
 
-/** The todo shape sent to the client (no owner info). */
-export type Todo = Omit<DbTodo, "userId">
-
-/** A todo as rendered on the client; `pending` marks optimistic entries. */
-export type ClientTodo = Todo & { pending?: boolean }
-
-export const OPTIMISTIC_PREFIX = "optimistic-"
-
-export type OptimisticAction =
-  | { type: "add"; todo: ClientTodo }
+export type TodoAction =
+  | { type: "add"; todo: Todo }
   | {
       type: "update"
       id: string
@@ -18,18 +15,15 @@ export type OptimisticAction =
   | { type: "delete"; id: string }
   | { type: "clear-completed" }
 
-export type OptimisticDispatch = (action: OptimisticAction) => void
+export type TodoDispatch = (action: TodoAction) => void
 
-export function optimisticReducer(
-  todos: ClientTodo[],
-  action: OptimisticAction
-): ClientTodo[] {
+export function todoReducer(todos: Todo[], action: TodoAction): Todo[] {
   switch (action.type) {
     case "add":
       return [...todos, action.todo]
     case "update":
       return todos.map((t) =>
-        t.id === action.id ? { ...t, ...action.patch, pending: true } : t
+        t.id === action.id ? { ...t, ...action.patch } : t
       )
     case "delete":
       return todos.filter((t) => t.id !== action.id)
