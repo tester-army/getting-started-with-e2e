@@ -7,11 +7,12 @@ describe('create todo form', () => {
   });
 
   test('adds a todo', async ({ agent, screen }) => {
-    await agent.act('add a new todo titled {title}', { params: { title: 'Buy milk' } });
+    await agent.act('add a new todo titled "Buy milk"');
 
     await expect(screen.getByRole('checkbox', 'Buy milk')).toBeVisible();
     await expect(screen.getByRole('status', 'Remaining')).toHaveText('1 remaining');
-    await agent.assert('the "New todo" input is empty again, ready for the next todo');
+
+    await agent.assert('the "New todo" input is empty');
     await agent.assert('"Buy milk" appears in the list as not done');
   });
 
@@ -19,5 +20,7 @@ describe('create todo form', () => {
     await agent.act('click Add without typing anything');
 
     await expect(screen.getByRole('listitem')).toHaveCount(0);
+
+    await agent.assert("no todo is visible", { vision: true });
   });
 });
